@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { feedbackSchema } from "@/lib/validation";
 import { sendDiscord } from "@/lib/notify";
+import { getAdminClient } from "@/lib/supabase/admin";
+import { hashToken } from "@/lib/tokens";
 import { checkRateLimit, clientIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
@@ -8,14 +10,13 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   const ip = clientIp(request);
 
-  // 公開エンドポイントのため、乱用（Discordスパム）対策を強めに
+  // 公開エンドポイント。1分あたり1回に制限。
   const rl = await checkRateLimit(`feedback:${ip}`, [
-    { name: "fb-burst", limit: 3, window: "1 m" },
-    { name: "fb-day", limit: 20, window: "1 d" },
+    { name: "fb-min", limit: 1, window: "1 m" },
   ]);
   if (!rl.success) {
     return NextResponse.json(
-      { error: "送信が多すぎます。しばらく待ってから再度お試しください。" },
+      { error: "送信は1分に1回までです。少し待ってから再度お試しください。" },
       { status: 429 }
     );
   }
@@ -36,14 +37,15 @@ export async function POST(request: Request) {
   }
   const input = parsed.data;
   if (input.website) {
-    // ハニーポット: ボット疑い。成功したふりをして静かに破棄。
+    // ハニーポット: ボット疑い。保存も通知もせず、成功したふりをする。
     return NextResponse.json({ ok: true });
   }
 
   const message = input.message.trim();
   const target = input.target.trim();
+  const isAccess = input.kind === "access_request";
 
-  if (input.kind === "access_request") {
+  if (isAccess) {
     if (!target) {
       return NextResponse.json(
         { error: "希望する予定（イベント名など）を入力してください" },
@@ -51,14 +53,25 @@ export async function POST(request: Request) {
       );
     }
   } else if (!message) {
-    return NextResponse.json(
-      { error: "内容を入力してください" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "内容を入力してください" }, { status: 400 });
   }
 
-  const isAccess = input.kind === "access_request";
-  const ok = await sendDiscord({
+  // 1) まず DB に保存（取りこぼし防止）
+  const supabase = getAdminClient();
+  const { error: insErr } = await supabase.from("feedback").insert({
+    kind: input.kind,
+    message,
+    target,
+    contact: input.contact,
+    path: input.path,
+    ip_hash: hashToken(ip),
+  });
+  if (insErr) {
+    return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
+  }
+
+  // 2) Discord へ即時通知（ベストエフォート。失敗しても保存済みなので ok を返す）
+  await sendDiscord({
     title: isAccess ? "🙋 投票権リクエスト" : "📝 フィードバック",
     color: isAccess ? 0xf1c40f : 0x5865f2,
     description: message || "-",
@@ -69,11 +82,5 @@ export async function POST(request: Request) {
     ],
   });
 
-  if (!ok) {
-    return NextResponse.json(
-      { error: "通知の送信に失敗しました。時間をおいて再度お試しください。" },
-      { status: 502 }
-    );
-  }
   return NextResponse.json({ ok: true });
 }

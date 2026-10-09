@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase/client";
-import { SITE_URL } from "@/lib/env";
 
 export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
@@ -14,10 +13,11 @@ export default function AdminLoginPage() {
     const supabase = createBrowserSupabase();
     const redirectParam =
       new URLSearchParams(window.location.search).get("redirect") || "/admin";
+    // 今アクセスしているドメインに必ず戻す（localhost フォールバックやデプロイURL迷子を防ぐ）
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${SITE_URL}/auth/callback?redirect=${encodeURIComponent(
+        redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(
           redirectParam
         )}`,
       },

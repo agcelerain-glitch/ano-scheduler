@@ -37,11 +37,19 @@ export default async function AdminPage() {
           <h1 className="text-2xl font-bold">管理画面</h1>
           <p className="text-sm text-slate-500">{user.email}</p>
         </div>
-        <form action="/auth/signout" method="post">
-          <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">
-            ログアウト
-          </button>
-        </form>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/feedback"
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100"
+          >
+            フィードバック
+          </Link>
+          <form action="/auth/signout" method="post">
+            <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">
+              ログアウト
+            </button>
+          </form>
+        </div>
       </header>
 
       <div className="grid gap-8 md:grid-cols-[1fr_360px]">

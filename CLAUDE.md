@@ -59,6 +59,7 @@ lib/
   slots.ts  aggregate.ts  validation.ts  events.ts  format.ts
 proxy.ts                               # /admin 保護＋セッション更新（Next16 proxy規約）
 supabase/migrations/0001_init.sql      # スキーマ＋RLS
+supabase/migrations/0002_feedback.sql  # フィードバック保存テーブル
 ```
 
 ## コマンド
