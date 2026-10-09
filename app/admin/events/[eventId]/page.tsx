@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { getEventData, timingOf } from "@/lib/events";
 import { buildPivot } from "@/lib/aggregate";
-import { baseUrlFromHeaders } from "@/lib/base-url";
+import { getBaseUrl } from "@/lib/base-url";
 import { dateLabel, daysUntil } from "@/lib/format";
 import PivotTable from "@/components/PivotTable";
 import CopyField from "@/components/CopyField";
@@ -36,7 +36,7 @@ export default async function AdminEventPage({
   const { event, participants, responses } = data;
   const pivot = buildPivot(timingOf(event), participants, responses);
   const h = await headers();
-  const answerUrl = `${baseUrlFromHeaders(h)}/e/${event.id}`;
+  const answerUrl = `${getBaseUrl(h)}/e/${event.id}`;
   const allowOverlap = event.allow_overlap !== false;
 
   return (

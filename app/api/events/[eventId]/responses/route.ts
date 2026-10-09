@@ -5,7 +5,7 @@ import { submitResponseSchema } from "@/lib/validation";
 import { normalizeIso, validSlotSet } from "@/lib/slots";
 import { generateKey, hashToken } from "@/lib/tokens";
 import { checkRateLimit, clientIp } from "@/lib/ratelimit";
-import { baseUrlFromHeaders } from "@/lib/base-url";
+import { getBaseUrl } from "@/lib/base-url";
 
 export const runtime = "nodejs";
 
@@ -107,6 +107,6 @@ export async function POST(
     }
   }
 
-  const editUrl = `${baseUrlFromHeaders(request.headers)}/e/${eventId}/edit?p=${participantId}&k=${editKey}`;
+  const editUrl = `${getBaseUrl(request.headers)}/e/${eventId}/edit?p=${participantId}&k=${editKey}`;
   return NextResponse.json({ participantId, editKey, editUrl }, { status: 201 });
 }
