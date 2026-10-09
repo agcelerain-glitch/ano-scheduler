@@ -88,6 +88,21 @@ npm run typecheck  # tsc --noEmit
 - 参加者名は個人情報。プライバシーポリシーと安全管理措置を用意（APPI）。
 - 名称・UIは既存サービス（調整さん等）の商標・意匠を模倣しない。
 
+## 公開アクセス / デプロイ保護（重要・保護ビューにしないこと）
+
+参加者の回答リンク `/e/{eventId}` は **ログイン不要で匿名公開**であることが仕様の前提。これを壊さないよう厳守する。
+
+- **Vercel の Deployment Protection（Vercel Authentication）を本番(Production)で有効にしない。**
+  有効化すると `/e/...` を含む全ページが Vercel SSO ログインの背後に入り、匿名の参加者が「保護ビュー（Authentication Required / vercel.com/sso）」でブロックされる。
+  - プレビュー配信（`ano-scheduler-xxxx.vercel.app` のような deploy 固有URL）は既定で保護される。これは問題ないが、**共有は必ず正式ドメイン `ano-scheduler.vercel.app`** を使う（リンク生成は `lib/base-url.ts` が本番ドメインを優先）。
+- アプリ側の認証ゲートは `proxy.ts` の `matcher: ["/admin/:path*"]` のみ。`/e/...` や `/`、`/api/*` は公開。ここを広げない。
+- 検証方法: Cookieなしの匿名リクエストで `GET /e/{id}` が **HTTP 200＋実ページ**（回答フォーム）を返すこと。401 や vercel.com/sso への誘導が出たら保護ビューになっている。
+  ```bash
+  curl -sS -o /dev/null -w "%{http_code} %{redirect_url}\n" https://ano-scheduler.vercel.app/e/<id>
+  # => 200 （リダイレクト無し）が正常
+  ```
+- 独自ドメインを追加する場合も Production は公開のまま、`NEXT_PUBLIC_SITE_URL` を正式ドメインに設定する。
+
 ## 環境変数（例）
 
 `.env` はコミットしない（`.gitignore`済み）。`.env.example` に鍵名のみ記載すること。
