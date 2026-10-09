@@ -52,7 +52,11 @@ app/
   api/events/[eventId]/responses/route.ts   # 回答送信(POST)
   api/responses/[participantId]/route.ts    # 回答編集(PUT)
   api/cron/cleanup/route.ts             # 期限切れ削除(Cron)
-components/                             # PivotTable / CopyField / ConfirmButton
+components/                             # PivotTable / CopyField / ConfirmButton / ShareLink
+                                        # FeedbackWidget / HealthCheckPanel / ServiceWorkerRegister
+app/manifest.ts                        # PWA マニフェスト(/manifest.webmanifest)
+public/sw.js                           # Service Worker（静的アセットキャッシュ）
+public/*.png, favicon.ico              # PWA/favicon アイコン一式
 lib/
   supabase/{admin,server,client,middleware}.ts
   auth.ts  tokens.ts  ratelimit.ts  env.ts
