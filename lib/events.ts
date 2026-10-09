@@ -1,7 +1,7 @@
 import "server-only";
 import { getAdminClient } from "./supabase/admin";
 import { normalizeIso, type EventTiming } from "./slots";
-import type { MemoLite, ParticipantLite, ResponseLite } from "./aggregate";
+import type { ParticipantWithNote, ResponseLite } from "./aggregate";
 
 export type EventRow = {
   id: string;
@@ -45,38 +45,32 @@ export async function getEvent(id: string): Promise<EventRow | null> {
 
 export type EventData = {
   event: EventRow;
-  participants: ParticipantLite[];
+  participants: ParticipantWithNote[];
   responses: ResponseLite[];
-  memos: MemoLite[];
 };
 
-/** イベント本体＋回答・メモをまとめて取得。 */
+/** イベント本体＋回答（参加者の特記事項含む）をまとめて取得。 */
 export async function getEventData(id: string): Promise<EventData | null> {
   const event = await getEvent(id);
   if (!event) return null;
   const supabase = getAdminClient();
 
-  const [p, r, m] = await Promise.all([
+  const [p, r] = await Promise.all([
     supabase
       .from("participants")
-      .select("id,name")
+      .select("id,name,note")
       .eq("event_id", id)
       .order("created_at", { ascending: true }),
     supabase
       .from("responses")
       .select("participant_id,slot_start,available")
       .eq("event_id", id),
-    supabase
-      .from("day_memos")
-      .select("participant_id,memo_date,memo")
-      .eq("event_id", id),
   ]);
 
   return {
     event,
-    participants: (p.data ?? []) as ParticipantLite[],
+    participants: (p.data ?? []) as ParticipantWithNote[],
     responses: (r.data ?? []) as ResponseLite[],
-    memos: (m.data ?? []) as MemoLite[],
   };
 }
 

@@ -33,8 +33,8 @@ export default async function AdminEventPage({
   const data = await getEventData(eventId);
   if (!data) notFound();
 
-  const { event, participants, responses, memos } = data;
-  const pivot = buildPivot(timingOf(event), participants, responses, memos);
+  const { event, participants, responses } = data;
+  const pivot = buildPivot(timingOf(event), participants, responses);
   const h = await headers();
   const answerUrl = `${baseUrlFromHeaders(h)}/e/${event.id}`;
   const allowOverlap = event.allow_overlap !== false;

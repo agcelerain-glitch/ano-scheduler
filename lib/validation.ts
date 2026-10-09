@@ -55,7 +55,7 @@ export const submitResponseSchema = z.object({
   // ハニーポット（ボット対策）: 空でなければ弾く
   website: z.string().max(0).optional().default(""),
   available: z.array(z.string()).max(MAX_SLOTS),
-  memos: z.record(z.string().regex(DATE), z.string().max(500)).optional().default({}),
+  note: z.string().trim().max(1000).optional().default(""),
 });
 
 export type SubmitResponseInput = z.infer<typeof submitResponseSchema>;

@@ -2,15 +2,11 @@ import { generateSlots, normalizeIso, type EventTiming } from "./slots";
 import { dateLabel } from "./format";
 
 export type ParticipantLite = { id: string; name: string };
+export type ParticipantWithNote = { id: string; name: string; note: string };
 export type ResponseLite = {
   participant_id: string;
   slot_start: string;
   available: boolean;
-};
-export type MemoLite = {
-  participant_id: string;
-  memo_date: string;
-  memo: string;
 };
 
 export type PivotRow = {
@@ -26,22 +22,23 @@ export type PivotDate = {
   date: string;
   label: string;
   rows: PivotRow[];
+  maxOkInDate: number;
 };
+
+export type PivotNote = { id: string; name: string; note: string };
 
 export type Pivot = {
   participants: ParticipantLite[];
   times: string[];
   dates: PivotDate[];
-  /** participantId -> (date -> memo) */
-  memos: Record<string, Record<string, string>>;
+  notes: PivotNote[];
   maxOk: number;
 };
 
 export function buildPivot(
   timing: EventTiming,
-  participants: ParticipantLite[],
-  responses: ResponseLite[],
-  memos: MemoLite[]
+  participants: ParticipantWithNote[],
+  responses: ResponseLite[]
 ): Pivot {
   const { dates, times, slots } = generateSlots(timing);
 
@@ -58,47 +55,51 @@ export function buildPivot(
     set.add(r.participant_id);
   }
 
-  // メモ: participantId -> date -> memo
-  const memoMap: Record<string, Record<string, string>> = {};
-  for (const m of memos) {
-    (memoMap[m.participant_id] ??= {})[m.memo_date] = m.memo;
-  }
-
   // slot(date|time) -> startUtc
   const startBy = new Map<string, string>();
   for (const s of slots) startBy.set(`${s.date}|${s.time}`, s.startUtc);
 
-  // まず全行を作りつつ最大○数を求める
+  const cols: ParticipantLite[] = participants.map((p) => ({
+    id: p.id,
+    name: p.name,
+  }));
+
   let maxOk = 0;
   const rowsByDate = new Map<string, PivotRow[]>();
+  const maxByDate = new Map<string, number>();
   for (const date of dates) {
     const rows: PivotRow[] = [];
+    let dateMax = 0;
     for (const time of times) {
       const startUtc = startBy.get(`${date}|${time}`)!;
       const okSet = okBySlot.get(startUtc) ?? new Set<string>();
       const cells: Record<string, boolean> = {};
-      for (const p of participants) cells[p.id] = okSet.has(p.id);
+      for (const p of cols) cells[p.id] = okSet.has(p.id);
       const okCount = okSet.size;
       if (okCount > maxOk) maxOk = okCount;
+      if (okCount > dateMax) dateMax = okCount;
       rows.push({ time, startUtc, okCount, isBest: false, cells });
     }
     rowsByDate.set(date, rows);
+    maxByDate.set(date, dateMax);
   }
 
-  // 最大○数に並ぶ行をベスト候補としてマーク（1人以上いる場合のみ）
   const pivotDates: PivotDate[] = dates.map((date) => {
     const rows = rowsByDate.get(date)!;
     for (const row of rows) {
       row.isBest = maxOk > 0 && row.okCount === maxOk;
     }
-    return { date, label: dateLabel(date), rows };
+    return {
+      date,
+      label: dateLabel(date),
+      rows,
+      maxOkInDate: maxByDate.get(date) ?? 0,
+    };
   });
 
-  return {
-    participants,
-    times,
-    dates: pivotDates,
-    memos: memoMap,
-    maxOk,
-  };
+  const notes: PivotNote[] = participants
+    .filter((p) => p.note && p.note.trim() !== "")
+    .map((p) => ({ id: p.id, name: p.name, note: p.note }));
+
+  return { participants: cols, times, dates: pivotDates, notes, maxOk };
 }

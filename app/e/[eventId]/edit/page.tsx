@@ -44,7 +44,7 @@ export default async function EditPage({
   const supabase = getAdminClient();
   const { data: participant } = await supabase
     .from("participants")
-    .select("id,name,event_id,edit_key_hash")
+    .select("id,name,event_id,edit_key_hash,note")
     .eq("id", participantId)
     .maybeSingle();
 
@@ -67,16 +67,10 @@ export default async function EditPage({
     );
   }
 
-  const [resp, memoRows] = await Promise.all([
-    supabase
-      .from("responses")
-      .select("slot_start,available")
-      .eq("participant_id", participantId),
-    supabase
-      .from("day_memos")
-      .select("memo_date,memo")
-      .eq("participant_id", participantId),
-  ]);
+  const { data: resp } = await supabase
+    .from("responses")
+    .select("slot_start,available")
+    .eq("participant_id", participantId);
 
   const timing = timingOf(event);
   const { dates, times, slots } = generateSlots(timing);
@@ -84,12 +78,9 @@ export default async function EditPage({
   const slotLookup: Record<string, string> = {};
   for (const s of slots) slotLookup[`${s.date}|${s.time}`] = s.startUtc;
 
-  const initialSelected = (resp.data ?? [])
+  const initialSelected = (resp ?? [])
     .filter((r) => r.available)
     .map((r) => normalizeIso(r.slot_start as string));
-  const initialMemos: Record<string, string> = {};
-  for (const m of memoRows.data ?? [])
-    initialMemos[m.memo_date as string] = m.memo as string;
 
   const allowOverlap = event.allow_overlap !== false;
   // 先着制のときだけ、自分以外が確保済みの枠を選択不可にする
@@ -118,7 +109,7 @@ export default async function EditPage({
           slotLookup={slotLookup}
           initialName={participant.name as string}
           initialSelected={initialSelected}
-          initialMemos={initialMemos}
+          initialNote={(participant.note as string) ?? ""}
           allowOverlap={allowOverlap}
           takenSlots={takenSlots}
         />

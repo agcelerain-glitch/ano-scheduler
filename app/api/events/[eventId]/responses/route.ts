@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { getEvent, getTakenSlots, isExpired, timingOf } from "@/lib/events";
 import { submitResponseSchema } from "@/lib/validation";
-import { eachDate, normalizeIso, validSlotSet } from "@/lib/slots";
+import { normalizeIso, validSlotSet } from "@/lib/slots";
 import { generateKey, hashToken } from "@/lib/tokens";
 import { checkRateLimit, clientIp } from "@/lib/ratelimit";
 import { baseUrlFromHeaders } from "@/lib/base-url";
@@ -57,7 +57,6 @@ export async function POST(
 
   const timing = timingOf(event);
   const valid = validSlotSet(timing);
-  const validDates = new Set(eachDate(timing.dateStart, timing.dateEnd));
 
   const available = Array.from(new Set(input.available.map(normalizeIso))).filter(
     (s) => valid.has(s)
@@ -79,7 +78,12 @@ export async function POST(
 
   const { data: participant, error: pErr } = await supabase
     .from("participants")
-    .insert({ event_id: eventId, name: input.name, edit_key_hash: hashToken(editKey) })
+    .insert({
+      event_id: eventId,
+      name: input.name,
+      edit_key_hash: hashToken(editKey),
+      note: input.note,
+    })
     .select("id")
     .single();
 
@@ -101,18 +105,6 @@ export async function POST(
       await supabase.from("participants").delete().eq("id", participantId);
       return NextResponse.json({ error: "回答の保存に失敗しました" }, { status: 500 });
     }
-  }
-
-  const memoRows = Object.entries(input.memos)
-    .filter(([date, memo]) => memo.trim() !== "" && validDates.has(date))
-    .map(([memo_date, memo]) => ({
-      event_id: eventId,
-      participant_id: participantId,
-      memo_date,
-      memo: memo.trim(),
-    }));
-  if (memoRows.length > 0) {
-    await supabase.from("day_memos").insert(memoRows);
   }
 
   const editUrl = `${baseUrlFromHeaders(request.headers)}/e/${eventId}/edit?p=${participantId}&k=${editKey}`;

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import ShareLink from "@/components/ShareLink";
 
 export type AnswerFormProps = {
   eventId: string;
@@ -12,7 +13,7 @@ export type AnswerFormProps = {
   slotLookup: Record<string, string>;
   initialName?: string;
   initialSelected?: string[];
-  initialMemos?: Record<string, string>;
+  initialNote?: string;
   participantId?: string;
   editKey?: string;
   /** false のとき先着制。takenSlots は選択不可。 */
@@ -35,15 +36,11 @@ export default function AnswerForm(props: AnswerFormProps) {
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(props.initialSelected ?? [])
   );
-  const [memos, setMemos] = useState<Record<string, string>>(
-    () => ({ ...(props.initialMemos ?? {}) })
-  );
+  const [note, setNote] = useState(props.initialNote ?? "");
   const [honeypot, setHoneypot] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ editUrl?: string; editKey?: string } | null>(
-    null
-  );
+  const [done, setDone] = useState<{ editUrl?: string } | null>(null);
 
   const slotFor = (date: string, time: string) => slotLookup[`${date}|${time}`];
 
@@ -89,7 +86,7 @@ export default function AnswerForm(props: AnswerFormProps) {
       name: name.trim(),
       website: honeypot,
       available: Array.from(selected),
-      memos,
+      note,
     };
     try {
       const res =
@@ -111,7 +108,7 @@ export default function AnswerForm(props: AnswerFormProps) {
         return;
       }
       if (props.mode === "create") {
-        setDone({ editUrl: data.editUrl, editKey: data.editKey });
+        setDone({ editUrl: data.editUrl });
       } else {
         setDone({});
       }
@@ -123,8 +120,6 @@ export default function AnswerForm(props: AnswerFormProps) {
     }
   }
 
-  const memoDates = useMemo(() => columns.map((c) => c), [columns]);
-
   if (done) {
     return (
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
@@ -134,14 +129,13 @@ export default function AnswerForm(props: AnswerFormProps) {
         {props.mode === "create" && done.editUrl && (
           <div className="mt-3 space-y-2 text-sm">
             <p className="text-emerald-900">
-              あとから回答を編集するためのURLです。
+              あとから回答を編集するためのリンクです。
               <strong>必ず保存してください（再表示されません）。</strong>
             </p>
-            <input
-              readOnly
-              value={done.editUrl}
-              onFocus={(e) => e.currentTarget.select()}
-              className="w-full rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs"
+            <ShareLink
+              url={done.editUrl}
+              label="編集用リンク"
+              shareTitle="回答の編集リンク（ano-scheduler）"
             />
           </div>
         )}
@@ -242,23 +236,15 @@ export default function AnswerForm(props: AnswerFormProps) {
       </div>
 
       <div>
-        <p className="mb-2 text-sm font-medium">日ごとのメモ（任意）</p>
-        <div className="space-y-2">
-          {memoDates.map((c) => (
-            <div key={c.date} className="flex items-center gap-2">
-              <span className="w-20 shrink-0 text-xs text-slate-500">{c.label}</span>
-              <input
-                value={memos[c.date] ?? ""}
-                onChange={(e) =>
-                  setMemos((prev) => ({ ...prev, [c.date]: e.target.value }))
-                }
-                maxLength={500}
-                placeholder="例: 20時以降なら可 など"
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
-              />
-            </div>
-          ))}
-        </div>
+        <label className="mb-1 block text-sm font-medium">特記事項（任意）</label>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={1000}
+          rows={3}
+          placeholder="例: 20時以降なら調整可能です など"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
       </div>
 
       {error && (

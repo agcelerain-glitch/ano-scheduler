@@ -61,6 +61,7 @@ proxy.ts                               # /admin 保護＋セッション更新�
 supabase/migrations/0001_init.sql          # スキーマ＋RLS
 supabase/migrations/0002_feedback.sql      # フィードバック保存テーブル
 supabase/migrations/0003_allow_overlap.sql # 重複可否（先着制）カラム追加
+supabase/migrations/0004_participant_note.sql # 特記事項(participants.note)。day_memos は廃止
 ```
 
 ## コマンド

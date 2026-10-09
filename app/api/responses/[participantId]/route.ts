@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { getEvent, getTakenSlots, isExpired, timingOf } from "@/lib/events";
 import { editResponseSchema } from "@/lib/validation";
-import { eachDate, normalizeIso, validSlotSet } from "@/lib/slots";
+import { normalizeIso, validSlotSet } from "@/lib/slots";
 import { hashToken, safeEqual } from "@/lib/tokens";
 import { checkRateLimit, clientIp } from "@/lib/ratelimit";
 
@@ -70,7 +70,6 @@ export async function PUT(
 
   const timing = timingOf(event);
   const valid = validSlotSet(timing);
-  const validDates = new Set(eachDate(timing.dateStart, timing.dateEnd));
   const available = Array.from(new Set(input.available.map(normalizeIso))).filter(
     (s) => valid.has(s)
   );
@@ -99,22 +98,13 @@ export async function PUT(
     );
   }
 
-  await supabase.from("day_memos").delete().eq("participant_id", participantId);
-  const memoRows = Object.entries(input.memos)
-    .filter(([date, memo]) => memo.trim() !== "" && validDates.has(date))
-    .map(([memo_date, memo]) => ({
-      event_id: eventId,
-      participant_id: participantId,
-      memo_date,
-      memo: memo.trim(),
-    }));
-  if (memoRows.length > 0) {
-    await supabase.from("day_memos").insert(memoRows);
-  }
-
   await supabase
     .from("participants")
-    .update({ name: input.name, updated_at: new Date().toISOString() })
+    .update({
+      name: input.name,
+      note: input.note,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", participantId);
 
   return NextResponse.json({ ok: true });
