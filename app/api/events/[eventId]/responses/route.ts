@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { getEvent, isExpired, timingOf } from "@/lib/events";
+import { getEvent, getTakenSlots, isExpired, timingOf } from "@/lib/events";
 import { submitResponseSchema } from "@/lib/validation";
 import { eachDate, normalizeIso, validSlotSet } from "@/lib/slots";
 import { generateKey, hashToken } from "@/lib/tokens";
 import { checkRateLimit, clientIp } from "@/lib/ratelimit";
-import { SITE_URL } from "@/lib/env";
+import { baseUrlFromHeaders } from "@/lib/base-url";
 
 export const runtime = "nodejs";
 
@@ -63,6 +63,17 @@ export async function POST(
     (s) => valid.has(s)
   );
 
+  // 先着制: 既に他の人が確保した枠を含むなら拒否
+  if (event.allow_overlap === false && available.length > 0) {
+    const taken = new Set(await getTakenSlots(eventId));
+    if (available.some((s) => taken.has(s))) {
+      return NextResponse.json(
+        { error: "選択した時間の一部が既に埋まりました。画面を更新して選び直してください。" },
+        { status: 409 }
+      );
+    }
+  }
+
   const supabase = getAdminClient();
   const editKey = generateKey();
 
@@ -104,6 +115,6 @@ export async function POST(
     await supabase.from("day_memos").insert(memoRows);
   }
 
-  const editUrl = `${SITE_URL}/e/${eventId}/edit?p=${participantId}&k=${editKey}`;
+  const editUrl = `${baseUrlFromHeaders(request.headers)}/e/${eventId}/edit?p=${participantId}&k=${editKey}`;
   return NextResponse.json({ participantId, editKey, editUrl }, { status: 201 });
 }

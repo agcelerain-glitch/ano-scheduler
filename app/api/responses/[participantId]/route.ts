@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { getEvent, isExpired, timingOf } from "@/lib/events";
+import { getEvent, getTakenSlots, isExpired, timingOf } from "@/lib/events";
 import { editResponseSchema } from "@/lib/validation";
 import { eachDate, normalizeIso, validSlotSet } from "@/lib/slots";
 import { hashToken, safeEqual } from "@/lib/tokens";
@@ -74,6 +74,17 @@ export async function PUT(
   const available = Array.from(new Set(input.available.map(normalizeIso))).filter(
     (s) => valid.has(s)
   );
+
+  // 先着制: 自分以外が確保済みの枠を含むなら拒否
+  if (event.allow_overlap === false && available.length > 0) {
+    const taken = new Set(await getTakenSlots(eventId, participantId));
+    if (available.some((s) => taken.has(s))) {
+      return NextResponse.json(
+        { error: "選択した時間の一部が既に埋まりました。画面を更新して選び直してください。" },
+        { status: 409 }
+      );
+    }
+  }
 
   // 既存を入れ替え（この参加者の行のみ操作するため競合は限定的）
   await supabase.from("responses").delete().eq("participant_id", participantId);

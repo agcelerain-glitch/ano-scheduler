@@ -62,6 +62,17 @@ export default function CreateEventForm() {
         </select>
       </div>
 
+      <div>
+        <label className="block text-sm font-medium">参加者の重複</label>
+        <select name="allowOverlap" defaultValue="true" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="true">複数人で調整（同じ枠を複数人が選べる）</option>
+          <option value="false">先着1名（1枠につき1人・予約型）</option>
+        </select>
+        <p className="mt-1 text-xs text-slate-500">
+          「先着1名」では、誰かが確保した枠は他の人が選べなくなります。
+        </p>
+      </div>
+
       <input type="hidden" name="timezone" value="Asia/Tokyo" />
 
       {state.error && (

@@ -1,14 +1,16 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { getEventData, timingOf } from "@/lib/events";
 import { buildPivot } from "@/lib/aggregate";
-import { SITE_URL } from "@/lib/env";
+import { baseUrlFromHeaders } from "@/lib/base-url";
 import { dateLabel, daysUntil } from "@/lib/format";
 import PivotTable from "@/components/PivotTable";
 import CopyField from "@/components/CopyField";
 import ConfirmButton from "@/components/ConfirmButton";
+import EditEventForm from "./EditEventForm";
 import {
   deleteEventAction,
   toggleCloseAction,
@@ -33,7 +35,9 @@ export default async function AdminEventPage({
 
   const { event, participants, responses, memos } = data;
   const pivot = buildPivot(timingOf(event), participants, responses, memos);
-  const answerUrl = `${SITE_URL}/e/${event.id}`;
+  const h = await headers();
+  const answerUrl = `${baseUrlFromHeaders(h)}/e/${event.id}`;
+  const allowOverlap = event.allow_overlap !== false;
 
   return (
     <main className="mx-auto max-w-4xl px-5 py-10">
@@ -50,7 +54,8 @@ export default async function AdminEventPage({
             {event.slot_minutes}分刻み / {event.timezone}）
           </p>
           <p className="mt-0.5 text-xs text-slate-400">
-            作成から30日で自動削除 ・ 残り{daysUntil(event.expires_at)}日
+            {allowOverlap ? "複数人で調整（重複OK）" : "先着1名（重複NG・予約型）"}
+            {" ・ "}作成から30日で自動削除 ・ 残り{daysUntil(event.expires_at)}日
           </p>
         </div>
         {event.is_closed && (
@@ -60,18 +65,22 @@ export default async function AdminEventPage({
         )}
       </header>
 
-      {event.description && (
-        <p className="mt-3 whitespace-pre-wrap rounded-lg bg-white p-3 text-sm text-slate-700">
-          {event.description}
-        </p>
-      )}
+      {/* タイトル・説明の編集 */}
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
+        <h2 className="mb-3 text-lg font-semibold">タイトル・説明の編集</h2>
+        <EditEventForm
+          eventId={event.id}
+          title={event.title}
+          description={event.description}
+        />
+      </section>
 
       {/* URL配布 */}
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="mb-3 text-lg font-semibold">URLを配布</h2>
-        <CopyField label="回答・結果閲覧用URL（参加者へ共有）" value={answerUrl} />
+        <CopyField label="回答用URL（参加者へ共有）" value={answerUrl} />
         <p className="mt-2 text-xs text-slate-400">
-          このURLを知っている人は回答・集計閲覧ができます。管理操作はこのページ（ログイン必須）からのみ可能です。
+          参加者は回答のみ行えます。集計（下記ピボット表）はこの管理画面でのみ閲覧できます。
         </p>
       </section>
 

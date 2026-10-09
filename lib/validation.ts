@@ -18,6 +18,11 @@ export const createEventSchema = z
       message: "スロット間隔は15/30/60分のいずれか",
     }),
     timezone: z.string().default("Asia/Tokyo"),
+    // "true"/"false" 文字列を真偽値へ（z.coerce.boolean は "false" も true になるため使わない）
+    allowOverlap: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((v) => v === "true"),
   })
   .superRefine((v, ctx) => {
     if (v.dateEnd < v.dateStart) {

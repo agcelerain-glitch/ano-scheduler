@@ -58,8 +58,9 @@ lib/
   auth.ts  tokens.ts  ratelimit.ts  env.ts
   slots.ts  aggregate.ts  validation.ts  events.ts  format.ts
 proxy.ts                               # /admin 保護＋セッション更新（Next16 proxy規約）
-supabase/migrations/0001_init.sql      # スキーマ＋RLS
-supabase/migrations/0002_feedback.sql  # フィードバック保存テーブル
+supabase/migrations/0001_init.sql          # スキーマ＋RLS
+supabase/migrations/0002_feedback.sql      # フィードバック保存テーブル
+supabase/migrations/0003_allow_overlap.sql # 重複可否（先着制）カラム追加
 ```
 
 ## コマンド

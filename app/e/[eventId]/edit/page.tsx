@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getEvent, isExpired, timingOf } from "@/lib/events";
+import { getEvent, getTakenSlots, isExpired, timingOf } from "@/lib/events";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { generateSlots, normalizeIso } from "@/lib/slots";
 import { hashToken, safeEqual } from "@/lib/tokens";
@@ -91,6 +91,12 @@ export default async function EditPage({
   for (const m of memoRows.data ?? [])
     initialMemos[m.memo_date as string] = m.memo as string;
 
+  const allowOverlap = event.allow_overlap !== false;
+  // 先着制のときだけ、自分以外が確保済みの枠を選択不可にする
+  const takenSlots = allowOverlap
+    ? []
+    : await getTakenSlots(eventId, participantId);
+
   return (
     <main className="mx-auto max-w-4xl px-5 py-10">
       <Link href={`/e/${eventId}`} className="text-sm text-slate-500 hover:underline">
@@ -113,6 +119,8 @@ export default async function EditPage({
           initialName={participant.name as string}
           initialSelected={initialSelected}
           initialMemos={initialMemos}
+          allowOverlap={allowOverlap}
+          takenSlots={takenSlots}
         />
       </div>
     </main>

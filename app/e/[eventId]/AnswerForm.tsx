@@ -15,11 +15,21 @@ export type AnswerFormProps = {
   initialMemos?: Record<string, string>;
   participantId?: string;
   editKey?: string;
+  /** false のとき先着制。takenSlots は選択不可。 */
+  allowOverlap?: boolean;
+  takenSlots?: string[];
 };
 
 export default function AnswerForm(props: AnswerFormProps) {
   const router = useRouter();
   const { columns, times, slotLookup } = props;
+  const allowOverlap = props.allowOverlap !== false;
+  const taken = useMemo(
+    () => new Set(props.takenSlots ?? []),
+    [props.takenSlots]
+  );
+  const isBlocked = (start: string | undefined, on: boolean) =>
+    !allowOverlap && !!start && !on && taken.has(start);
 
   const [name, setName] = useState(props.initialName ?? "");
   const [selected, setSelected] = useState<Set<string>>(
@@ -39,6 +49,8 @@ export default function AnswerForm(props: AnswerFormProps) {
 
   function toggle(startUtc: string | undefined) {
     if (!startUtc) return;
+    // 先着制で他人が確保済みの枠は選べない
+    if (!allowOverlap && !selected.has(startUtc) && taken.has(startUtc)) return;
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(startUtc)) next.delete(startUtc);
@@ -50,8 +62,10 @@ export default function AnswerForm(props: AnswerFormProps) {
   function toggleColumn(date: string) {
     const starts = times
       .map((t) => slotFor(date, t))
-      .filter((s): s is string => Boolean(s));
-    const allOn = starts.every((s) => selected.has(s));
+      .filter((s): s is string => Boolean(s))
+      // 先着制で確保済みの枠は対象外
+      .filter((s) => allowOverlap || selected.has(s) || !taken.has(s));
+    const allOn = starts.length > 0 && starts.every((s) => selected.has(s));
     setSelected((prev) => {
       const next = new Set(prev);
       for (const s of starts) {
@@ -200,18 +214,22 @@ export default function AnswerForm(props: AnswerFormProps) {
                   {columns.map((c) => {
                     const start = slotFor(c.date, t);
                     const on = start ? selected.has(start) : false;
+                    const blocked = isBlocked(start, on);
                     return (
                       <td key={c.date} className="p-0.5 text-center">
                         <button
                           type="button"
                           onClick={() => toggle(start)}
+                          disabled={blocked}
                           className={`h-8 w-12 rounded text-base ${
-                            on
-                              ? "bg-emerald-500 text-white"
-                              : "bg-slate-100 text-slate-300 hover:bg-slate-200"
+                            blocked
+                              ? "cursor-not-allowed bg-slate-200 text-slate-400"
+                              : on
+                                ? "bg-emerald-500 text-white"
+                                : "bg-slate-100 text-slate-300 hover:bg-slate-200"
                           }`}
                         >
-                          {on ? "○" : "・"}
+                          {blocked ? "埋" : on ? "○" : "・"}
                         </button>
                       </td>
                     );

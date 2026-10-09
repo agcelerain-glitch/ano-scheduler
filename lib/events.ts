@@ -1,6 +1,6 @@
 import "server-only";
 import { getAdminClient } from "./supabase/admin";
-import type { EventTiming } from "./slots";
+import { normalizeIso, type EventTiming } from "./slots";
 import type { MemoLite, ParticipantLite, ResponseLite } from "./aggregate";
 
 export type EventRow = {
@@ -15,6 +15,7 @@ export type EventRow = {
   slot_minutes: number;
   timezone: string;
   is_closed: boolean;
+  allow_overlap: boolean;
   created_at: string;
   expires_at: string;
 };
@@ -81,4 +82,21 @@ export async function getEventData(id: string): Promise<EventData | null> {
 
 export function isExpired(e: EventRow): boolean {
   return new Date(e.expires_at).getTime() < Date.now();
+}
+
+/** 既に回答で埋まっているスロット（正規化ISO）。先着制の埋まり判定に使う。 */
+export async function getTakenSlots(
+  eventId: string,
+  excludeParticipantId?: string
+): Promise<string[]> {
+  const supabase = getAdminClient();
+  const { data } = await supabase
+    .from("responses")
+    .select("slot_start,participant_id")
+    .eq("event_id", eventId);
+  let rows = data ?? [];
+  if (excludeParticipantId) {
+    rows = rows.filter((r) => r.participant_id !== excludeParticipantId);
+  }
+  return rows.map((r) => normalizeIso(r.slot_start as string));
 }

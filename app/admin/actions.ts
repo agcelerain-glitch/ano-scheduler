@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { createEventSchema } from "@/lib/validation";
 
-export type ActionState = { error?: string };
+export type ActionState = { error?: string; ok?: boolean };
 
 export async function createEventAction(
   _prev: ActionState,
@@ -23,6 +23,7 @@ export async function createEventAction(
     timeEnd: formData.get("timeEnd"),
     slotMinutes: formData.get("slotMinutes"),
     timezone: formData.get("timezone") ?? "Asia/Tokyo",
+    allowOverlap: formData.get("allowOverlap") ?? "true",
   });
 
   if (!parsed.success) {
@@ -43,6 +44,7 @@ export async function createEventAction(
       time_end: v.timeEnd,
       slot_minutes: v.slotMinutes,
       timezone: v.timezone,
+      allow_overlap: v.allowOverlap,
     })
     .select("id")
     .single();
@@ -53,6 +55,30 @@ export async function createEventAction(
 
   revalidatePath("/admin");
   redirect(`/admin/events/${data.id}`);
+}
+
+export async function updateEventAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireAdmin();
+  const id = String(formData.get("eventId"));
+  const title = String(formData.get("title") ?? "").trim();
+  const description = String(formData.get("description") ?? "");
+
+  if (!title) return { error: "タイトルを入力してください" };
+  if (title.length > 100) return { error: "タイトルが長すぎます（100文字まで）" };
+  if (description.length > 1000)
+    return { error: "説明が長すぎます（1000文字まで）" };
+
+  const { error } = await getAdminClient()
+    .from("events")
+    .update({ title, description })
+    .eq("id", id);
+  if (error) return { error: `更新に失敗しました: ${error.message}` };
+
+  revalidatePath(`/admin/events/${id}`);
+  return { ok: true };
 }
 
 export async function deleteEventAction(formData: FormData): Promise<void> {

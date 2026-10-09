@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getEventData, isExpired, timingOf } from "@/lib/events";
-import { buildPivot } from "@/lib/aggregate";
+import { getEvent, getTakenSlots, isExpired, timingOf } from "@/lib/events";
 import { generateSlots } from "@/lib/slots";
 import { dateLabel } from "@/lib/format";
-import PivotTable from "@/components/PivotTable";
 import AnswerForm from "./AnswerForm";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +13,9 @@ export async function generateMetadata({
   params: Promise<{ eventId: string }>;
 }): Promise<Metadata> {
   const { eventId } = await params;
-  const data = await getEventData(eventId);
+  const event = await getEvent(eventId);
   return {
-    title: data ? data.event.title : "日程調整",
+    title: event ? event.title : "日程調整",
     robots: { index: false, follow: false },
   };
 }
@@ -28,10 +26,9 @@ export default async function EventPage({
   params: Promise<{ eventId: string }>;
 }) {
   const { eventId } = await params;
-  const data = await getEventData(eventId);
-  if (!data || isExpired(data.event)) notFound();
+  const event = await getEvent(eventId);
+  if (!event || isExpired(event)) notFound();
 
-  const { event, participants, responses, memos } = data;
   const timing = timingOf(event);
   const { dates, times, slots } = generateSlots(timing);
 
@@ -39,7 +36,9 @@ export default async function EventPage({
   const slotLookup: Record<string, string> = {};
   for (const s of slots) slotLookup[`${s.date}|${s.time}`] = s.startUtc;
 
-  const pivot = buildPivot(timing, participants, responses, memos);
+  const allowOverlap = event.allow_overlap !== false;
+  // 先着制のときだけ、既に埋まっている枠を取得して選択不可にする
+  const takenSlots = allowOverlap ? [] : await getTakenSlots(event.id);
 
   return (
     <main className="mx-auto max-w-4xl px-5 py-10">
@@ -63,27 +62,27 @@ export default async function EventPage({
           </p>
         ) : (
           <>
-            <h2 className="mb-3 text-lg font-semibold">回答する</h2>
+            <h2 className="mb-1 text-lg font-semibold">回答する</h2>
+            <p className="mb-3 text-xs text-slate-500">
+              {allowOverlap
+                ? "参加できる時間帯に印をつけてください。"
+                : "空いている枠を確保できます（先着順）。「埋」は確保済みです。"}
+            </p>
             <AnswerForm
               eventId={event.id}
               mode="create"
               columns={columns}
               times={times}
               slotLookup={slotLookup}
+              allowOverlap={allowOverlap}
+              takenSlots={takenSlots}
             />
           </>
         )}
       </section>
 
-      <section className="mt-10">
-        <h2 className="mb-3 text-lg font-semibold">
-          みんなの回答（{participants.length}人）
-        </h2>
-        <PivotTable pivot={pivot} />
-      </section>
-
       <p className="mt-8 text-xs text-slate-400">
-        回答の修正は、送信後に表示される「編集用URL」から行えます。
+        回答は主催者のみが確認できます。修正は送信後に表示される「編集用URL」から行えます。
         このイベントは作成から30日で自動的に削除されます。
       </p>
     </main>
