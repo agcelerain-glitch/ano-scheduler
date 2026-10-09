@@ -80,21 +80,31 @@ export default async function AdminEventPage({
         <h2 className="mb-3 text-lg font-semibold">URLを配布</h2>
         <CopyField label="回答用URL（参加者へ共有）" value={answerUrl} />
         <p className="mt-2 text-xs text-slate-400">
-          参加者は回答のみ行えます。集計（下記ピボット表）はこの管理画面でのみ閲覧できます。
+          {allowOverlap
+            ? "重複OKのため、参加者も回答ページで全体の投票結果（名前付き）を閲覧できます。CSV出力は管理者のみ可能です。"
+            : "参加者は回答のみ行えます。集計（下記ピボット表）はこの管理画面でのみ閲覧できます。"}
         </p>
       </section>
 
       {/* 回答状況 */}
       <section className="mt-6">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">集計（{participants.length}人回答）</h2>
-          <form action={toggleCloseAction}>
-            <input type="hidden" name="eventId" value={event.id} />
-            <input type="hidden" name="close" value={(!event.is_closed).toString()} />
-            <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">
-              {event.is_closed ? "回答受付を再開" : "回答を締め切る"}
-            </button>
-          </form>
+          <div className="flex items-center gap-2">
+            <a
+              href={`/admin/events/${event.id}/export`}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100"
+            >
+              CSV出力
+            </a>
+            <form action={toggleCloseAction}>
+              <input type="hidden" name="eventId" value={event.id} />
+              <input type="hidden" name="close" value={(!event.is_closed).toString()} />
+              <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">
+                {event.is_closed ? "回答受付を再開" : "回答を締め切る"}
+              </button>
+            </form>
+          </div>
         </div>
         <PivotTable pivot={pivot} />
       </section>

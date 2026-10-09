@@ -49,29 +49,35 @@ export type EventData = {
   responses: ResponseLite[];
 };
 
-/** イベント本体＋回答（参加者の特記事項含む）をまとめて取得。 */
-export async function getEventData(id: string): Promise<EventData | null> {
-  const event = await getEvent(id);
-  if (!event) return null;
+/** 参加者（特記事項含む）＋回答を取得。ピボット集計用。 */
+export async function getResponses(eventId: string): Promise<{
+  participants: ParticipantWithNote[];
+  responses: ResponseLite[];
+}> {
   const supabase = getAdminClient();
-
   const [p, r] = await Promise.all([
     supabase
       .from("participants")
       .select("id,name,note")
-      .eq("event_id", id)
+      .eq("event_id", eventId)
       .order("created_at", { ascending: true }),
     supabase
       .from("responses")
       .select("participant_id,slot_start,available")
-      .eq("event_id", id),
+      .eq("event_id", eventId),
   ]);
-
   return {
-    event,
     participants: (p.data ?? []) as ParticipantWithNote[],
     responses: (r.data ?? []) as ResponseLite[],
   };
+}
+
+/** イベント本体＋回答（参加者の特記事項含む）をまとめて取得。 */
+export async function getEventData(id: string): Promise<EventData | null> {
+  const event = await getEvent(id);
+  if (!event) return null;
+  const { participants, responses } = await getResponses(id);
+  return { event, participants, responses };
 }
 
 export function isExpired(e: EventRow): boolean {
