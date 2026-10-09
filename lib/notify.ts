@@ -9,17 +9,25 @@ export type DiscordMessage = {
   fields?: DiscordField[];
 };
 
+export type DiscordResult = { ok: boolean; detail: string };
+
 /**
  * Discord Webhook へ通知を送る（サーバー専用）。
  * - URL は環境変数からのみ参照（クライアントに露出させない）
  * - allowed_mentions を空にして @everyone 等のメンション注入を無効化
- * - 4秒でタイムアウト。Discord 障害でユーザー操作を長時間ブロックしない
+ * - 4秒でタイムアウト
+ * - 成否と理由(detail)を返すので、ヘルスチェック等で原因を特定できる
  */
-export async function sendDiscord(msg: DiscordMessage): Promise<boolean> {
+export async function sendDiscord(msg: DiscordMessage): Promise<DiscordResult> {
   const url = process.env.DISCORD_WEBHOOK_URL;
   if (!url) {
-    console.warn("DISCORD_WEBHOOK_URL 未設定のため通知をスキップしました");
-    return false;
+    return { ok: false, detail: "DISCORD_WEBHOOK_URL が未設定です" };
+  }
+  if (!/^https:\/\/(discord\.com|discordapp\.com)\/api\/webhooks\//.test(url)) {
+    return {
+      ok: false,
+      detail: "URL 形式が不正です（Discord の Webhook URL ではない可能性）",
+    };
   }
 
   const body = {
@@ -49,9 +57,20 @@ export async function sendDiscord(msg: DiscordMessage): Promise<boolean> {
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    return res.ok;
-  } catch {
-    return false;
+    if (res.ok) return { ok: true, detail: `HTTP ${res.status}` };
+    let text = "";
+    try {
+      text = (await res.text()).slice(0, 200);
+    } catch {
+      /* noop */
+    }
+    return { ok: false, detail: `HTTP ${res.status} ${text}`.trim() };
+  } catch (e) {
+    const name = e instanceof Error ? e.name : "error";
+    return {
+      ok: false,
+      detail: name === "AbortError" ? "タイムアウト(4s)" : `送信失敗: ${name}`,
+    };
   } finally {
     clearTimeout(timer);
   }

@@ -37,5 +37,5 @@ export async function POST() {
     ],
   });
 
-  return NextResponse.json({ db, discord });
+  return NextResponse.json({ db, discord: discord.ok, discordDetail: discord.detail });
 }

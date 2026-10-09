@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type Result = { db: boolean; discord: boolean };
+type Result = { db: boolean; discord: boolean; discordDetail?: string };
 
 export default function HealthCheckPanel() {
   const [running, setRunning] = useState(false);
@@ -20,7 +20,11 @@ export default function HealthCheckPanel() {
         setError(data.error ?? "実行に失敗しました");
         return;
       }
-      setResult({ db: !!data.db, discord: !!data.discord });
+      setResult({
+        db: !!data.db,
+        discord: !!data.discord,
+        discordDetail: data.discordDetail,
+      });
     } catch {
       setError("通信エラーが発生しました");
     } finally {
@@ -51,9 +55,18 @@ export default function HealthCheckPanel() {
         </button>
       </div>
       {result && (
-        <div className="mt-3 flex gap-4 text-sm">
-          <span className="flex items-center gap-2">DB {badge(result.db)}</span>
-          <span className="flex items-center gap-2">Discord {badge(result.discord)}</span>
+        <div className="mt-3 text-sm">
+          <div className="flex gap-4">
+            <span className="flex items-center gap-2">DB {badge(result.db)}</span>
+            <span className="flex items-center gap-2">
+              Discord {badge(result.discord)}
+            </span>
+          </div>
+          {!result.discord && result.discordDetail && (
+            <p className="mt-2 rounded bg-slate-50 px-2 py-1 font-mono text-xs text-slate-600">
+              理由: {result.discordDetail}
+            </p>
+          )}
         </div>
       )}
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
