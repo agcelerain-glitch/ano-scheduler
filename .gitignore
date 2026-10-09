@@ -1,0 +1,45 @@
+# ===== 個人メモ・作業用 =====
+# memo.txt を含むローカル作業メモ。リポジトリには含めない。
+/other/
+
+# ===== 依存関係 =====
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+
+# ===== Next.js / ビルド成果物 =====
+/.next/
+/out/
+/build
+/dist
+
+# ===== 環境変数・シークレット =====
+# Firebase サービスアカウント鍵や各種 API キーは絶対にコミットしない
+.env
+.env.*
+!.env.example
+*-service-account*.json
+serviceAccountKey*.json
+firebase-adminsdk-*.json
+
+# ===== Vercel =====
+/.vercel
+
+# ===== ログ・一時ファイル =====
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+
+# ===== テスト・型チェック =====
+/coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# ===== IDE =====
+/.idea
+/.vscode/*
+!/.vscode/extensions.json
