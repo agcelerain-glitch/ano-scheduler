@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { dateLabel, daysUntil } from "@/lib/format";
 import CreateEventForm from "./CreateEventForm";
+import HealthCheckPanel from "@/components/HealthCheckPanel";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -79,11 +80,14 @@ export default async function AdminPage() {
           )}
         </section>
 
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">新しいイベント</h2>
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <CreateEventForm />
+        <section className="space-y-6">
+          <div>
+            <h2 className="mb-3 text-lg font-semibold">新しいイベント</h2>
+            <div className="rounded-xl border border-slate-200 bg-white p-5">
+              <CreateEventForm />
+            </div>
           </div>
+          <HealthCheckPanel />
         </section>
       </div>
     </main>

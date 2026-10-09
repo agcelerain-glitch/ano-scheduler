@@ -94,6 +94,7 @@ npm run typecheck  # tsc --noEmit
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 DATABASE_URL=            # Pooler(6543, transactionモード)
+DISCORD_WEBHOOK_URL=     # 開発者への即時通知（lib/notify.ts）。クライアントに露出させない
 # クライアント公開可（使う場合のみ・最小限）
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=

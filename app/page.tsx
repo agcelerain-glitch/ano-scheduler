@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AccessRequestForm from "@/components/AccessRequestForm";
 
 export default function Home() {
   return (
@@ -28,6 +29,17 @@ export default function Home() {
         >
           管理画面へ
         </Link>
+      </div>
+
+      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-6">
+        <h2 className="text-lg font-semibold">参加したい予定がありますか？</h2>
+        <p className="mt-2 text-sm text-slate-600">
+          回答用URLが見つからない場合は、参加したい予定を教えてください。
+          主催者に通知が届きます。
+        </p>
+        <div className="mt-4">
+          <AccessRequestForm />
+        </div>
       </div>
 
       <footer className="mt-12 text-xs text-slate-400">

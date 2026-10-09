@@ -60,3 +60,15 @@ export const editResponseSchema = submitResponseSchema.extend({
 });
 
 export type EditResponseInput = z.infer<typeof editResponseSchema>;
+
+// Discord 通知（フィードバック / 投票権リクエスト）
+export const feedbackSchema = z.object({
+  kind: z.enum(["feedback", "access_request"]).default("feedback"),
+  message: z.string().trim().max(2000).optional().default(""),
+  target: z.string().trim().max(200).optional().default(""), // access_request: 希望イベント名
+  contact: z.string().trim().max(200).optional().default(""), // 任意の連絡先
+  path: z.string().max(300).optional().default(""), // 送信元ページ
+  website: z.string().max(0).optional().default(""), // ハニーポット
+});
+
+export type FeedbackInput = z.infer<typeof feedbackSchema>;
