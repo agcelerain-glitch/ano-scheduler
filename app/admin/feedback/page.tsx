@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, isSuperAdmin } from "@/lib/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -27,22 +27,60 @@ function fmt(iso: string): string {
   }).format(new Date(iso));
 }
 
-export default async function AdminFeedbackPage() {
-  await requireAdmin();
-  const { data } = await getAdminClient()
+/**
+ * 最上位（開発者）は全件（システムフィードバック＋参加リクエスト）を総括できる。
+ * 一般管理者は、自分が owner のイベント(/e/{id})に寄せられたシステムフィードバックのみ。
+ * 参加リクエスト（送信元はトップ）はサービス全体向けなので一般管理者には表示しない。
+ */
+async function loadFeedback(email: string | undefined): Promise<FeedbackRow[]> {
+  const supabase = getAdminClient();
+
+  if (isSuperAdmin(email)) {
+    const { data } = await supabase
+      .from("feedback")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    return (data ?? []) as FeedbackRow[];
+  }
+
+  const { data: myEvents } = await supabase
+    .from("events")
+    .select("id")
+    .eq("owner_email", email);
+  const ids = (myEvents ?? []).map((e) => e.id as string);
+  if (ids.length === 0) return [];
+
+  // path が "/e/{id}" で始まるもの（/e/{id}, /e/{id}/edit 等）を前方一致で絞る。
+  const orFilter = ids.map((id) => `path.like./e/${id}*`).join(",");
+  const { data } = await supabase
     .from("feedback")
     .select("*")
+    .eq("kind", "feedback")
+    .or(orFilter)
     .order("created_at", { ascending: false })
     .limit(100);
-  const rows = (data ?? []) as FeedbackRow[];
+  return (data ?? []) as FeedbackRow[];
+}
+
+export default async function AdminFeedbackPage() {
+  const user = await requireAdmin();
+  const isSuper = isSuperAdmin(user.email);
+  const rows = await loadFeedback(user.email ?? undefined);
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-10">
       <Link href="/admin" className="text-sm text-slate-500 hover:underline">
         ← 一覧へ戻る
       </Link>
-      <h1 className="mt-3 text-2xl font-bold">フィードバック / リクエスト</h1>
-      <p className="mt-1 text-sm text-slate-500">最新100件を表示しています。</p>
+      <h1 className="mt-3 text-2xl font-bold">
+        {isSuper ? "フィードバック / 参加リクエスト" : "システムフィードバック"}
+      </h1>
+      <p className="mt-1 text-sm text-slate-500">
+        {isSuper
+          ? "全体のシステムフィードバックと参加リクエストの最新100件を表示しています。"
+          : "あなたのイベントに寄せられたシステムフィードバックの最新100件を表示しています。"}
+      </p>
 
       {rows.length === 0 ? (
         <p className="mt-6 rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
@@ -65,7 +103,7 @@ export default async function AdminFeedbackPage() {
                         : "bg-indigo-100 text-indigo-700"
                     }`}
                   >
-                    {isAccess ? "🙋 投票権リクエスト" : "📝 フィードバック"}
+                    {isAccess ? "🙋 参加リクエスト" : "📝 システムフィードバック"}
                   </span>
                   <span className="text-xs text-slate-400">{fmt(r.created_at)}</span>
                 </div>

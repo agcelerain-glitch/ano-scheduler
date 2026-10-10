@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 
   // 2) Discord へ即時通知（ベストエフォート。失敗しても保存済みなので ok を返す）
   await sendDiscord({
-    title: isAccess ? "🙋 投票権リクエスト" : "📝 フィードバック",
+    title: isAccess ? "🙋 参加リクエスト" : "📝 システムフィードバック",
     color: isAccess ? 0xf1c40f : 0x5865f2,
     description: message || "-",
     fields: [

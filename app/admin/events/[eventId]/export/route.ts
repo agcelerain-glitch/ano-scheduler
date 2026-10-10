@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, canManageEvent } from "@/lib/auth";
 import { getEventData, timingOf } from "@/lib/events";
 import { buildPivot } from "@/lib/aggregate";
 import { buildCsv } from "@/lib/csv";
@@ -16,11 +16,15 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
-  await requireAdmin();
+  const user = await requireAdmin();
   const { eventId } = await params;
 
   const data = await getEventData(eventId);
   if (!data) return new NextResponse("Not Found", { status: 404 });
+  // 他人のイベントのCSVは出力させない（最上位は全件可）。存在は秘匿して 404。
+  if (!canManageEvent(user, data.event.owner_email)) {
+    return new NextResponse("Not Found", { status: 404 });
+  }
 
   const pivot = buildPivot(timingOf(data.event), data.participants, data.responses);
   const csv = buildCsv(data.event, pivot);

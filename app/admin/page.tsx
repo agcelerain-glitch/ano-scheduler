@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, isSuperAdmin } from "@/lib/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { dateLabel, daysUntil } from "@/lib/format";
 import CreateEventForm from "./CreateEventForm";
@@ -24,10 +24,15 @@ type EventListRow = {
 export default async function AdminPage() {
   const user = await requireAdmin();
   const supabase = getAdminClient();
-  const { data } = await supabase
+  // 最上位（開発者）は全イベント、一般管理者は自分が owner のイベントのみ。
+  let query = supabase
     .from("events")
     .select("id,title,date_start,date_end,is_closed,expires_at")
     .order("created_at", { ascending: false });
+  if (!isSuperAdmin(user.email)) {
+    query = query.eq("owner_email", user.email);
+  }
+  const { data } = await query;
   const events = (data ?? []) as EventListRow[];
 
   return (

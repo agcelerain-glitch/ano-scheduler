@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, canManageEvent } from "@/lib/auth";
 import { getEventData, timingOf } from "@/lib/events";
 import { buildPivot } from "@/lib/aggregate";
 import { getBaseUrl } from "@/lib/base-url";
@@ -28,10 +28,12 @@ export default async function AdminEventPage({
 }: {
   params: Promise<{ eventId: string }>;
 }) {
-  await requireAdmin();
+  const user = await requireAdmin();
   const { eventId } = await params;
   const data = await getEventData(eventId);
   if (!data) notFound();
+  // 他人のイベントは存在を秘匿して notFound（最上位は全件アクセス可）。
+  if (!canManageEvent(user, data.event.owner_email)) notFound();
 
   const { event, participants, responses } = data;
   const pivot = buildPivot(timingOf(event), participants, responses);
@@ -78,7 +80,7 @@ export default async function AdminEventPage({
       {/* URL配布 */}
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="mb-3 text-lg font-semibold">URLを配布</h2>
-        <CopyField label="回答用URL（参加者へ共有）" value={answerUrl} />
+        <CopyField label="回答用URL（参加者へ共有）" value={answerUrl} openUrl />
         <p className="mt-2 text-xs text-slate-400">
           {allowOverlap
             ? "重複OKのため、参加者も回答ページで全体の投票結果（名前付き）を閲覧できます。CSV出力は管理者のみ可能です。"

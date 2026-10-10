@@ -2,11 +2,27 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
+import type { User } from "@supabase/supabase-js";
+import { requireAdmin, canManageEvent } from "@/lib/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { createEventSchema } from "@/lib/validation";
 
 export type ActionState = { error?: string; ok?: boolean };
+
+/**
+ * 対象イベントの操作権限を確認する。権限があれば user を、無ければ null を返す。
+ * proxy.ts の /admin 保護・各画面の表示制御に加え、書き込み系でも再検証（多層防御）。
+ */
+async function authorizeEvent(eventId: string): Promise<User | null> {
+  const user = await requireAdmin();
+  const { data } = await getAdminClient()
+    .from("events")
+    .select("owner_email")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (!data || !canManageEvent(user, data.owner_email as string)) return null;
+  return user;
+}
 
 export async function createEventAction(
   _prev: ActionState,
@@ -61,8 +77,10 @@ export async function updateEventAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireAdmin();
   const id = String(formData.get("eventId"));
+  if (!(await authorizeEvent(id))) {
+    return { error: "このイベントを編集する権限がありません" };
+  }
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "");
 
@@ -82,25 +100,30 @@ export async function updateEventAction(
 }
 
 export async function deleteEventAction(formData: FormData): Promise<void> {
-  await requireAdmin();
   const id = String(formData.get("eventId"));
+  if (!(await authorizeEvent(id))) redirect("/admin");
   await getAdminClient().from("events").delete().eq("id", id);
   revalidatePath("/admin");
   redirect("/admin");
 }
 
 export async function toggleCloseAction(formData: FormData): Promise<void> {
-  await requireAdmin();
   const id = String(formData.get("eventId"));
+  if (!(await authorizeEvent(id))) redirect("/admin");
   const close = formData.get("close") === "true";
   await getAdminClient().from("events").update({ is_closed: close }).eq("id", id);
   revalidatePath(`/admin/events/${id}`);
 }
 
 export async function deleteParticipantAction(formData: FormData): Promise<void> {
-  await requireAdmin();
-  const participantId = String(formData.get("participantId"));
   const eventId = String(formData.get("eventId"));
-  await getAdminClient().from("participants").delete().eq("id", participantId);
+  if (!(await authorizeEvent(eventId))) redirect("/admin");
+  const participantId = String(formData.get("participantId"));
+  // 別イベントの参加者を消せないよう event_id も条件に含める。
+  await getAdminClient()
+    .from("participants")
+    .delete()
+    .eq("id", participantId)
+    .eq("event_id", eventId);
   revalidatePath(`/admin/events/${eventId}`);
 }

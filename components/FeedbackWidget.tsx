@@ -51,7 +51,7 @@ export default function FeedbackWidget() {
       {open ? (
         <div className="w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-300 bg-white p-4 shadow-lg">
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">フィードバック</h3>
+            <h3 className="text-sm font-semibold">システムへのフィードバック</h3>
             <button
               onClick={() => setOpen(false)}
               className="text-slate-400 hover:text-slate-700"
@@ -60,6 +60,9 @@ export default function FeedbackWidget() {
               ✕
             </button>
           </div>
+          <p className="mb-2 text-xs text-slate-500">
+            アプリ自体の不具合・改善要望・ご感想をお寄せください。
+          </p>
 
           {state === "done" ? (
             <div className="py-4 text-center text-sm text-emerald-700">

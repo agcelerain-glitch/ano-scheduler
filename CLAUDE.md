@@ -27,7 +27,7 @@
 2. **`SUPABASE_SERVICE_ROLE_KEY` はサーバー側のみ。** クライアントバンドルに含めない（`NEXT_PUBLIC_` を付けない）。RLSをバイパスする鍵なので厳重に扱う。
 3. **全テーブルで RLS 有効化**。`anon` ロールは原則全拒否。サーバーAPIは `service_role` で必要操作のみ。
 4. **サーバーレスからは必ず Connection Pooler 経由**で接続（直接接続5432はマイグレーション等のみ）。
-5. 管理者は **Supabase Google ログイン＋`ADMIN_EMAILS` 許可リスト**で限定。`middleware.ts` で `/admin` を保護し、各ページ/サーバーアクションでも `requireAdmin()` で再検証する（多層防御）。
+5. 管理者は **Supabase Google ログイン＋許可リスト**で限定。`proxy.ts` で `/admin` を保護し、各ページ/サーバーアクションでも `requireAdmin()` で再検証する（多層防御）。権限は**2階層**（`ADMIN_EMAILS`＝一般管理者 / `SUPER_ADMIN_EMAILS`＝最上位・開発者）。閲覧/操作の可否は `canManageEvent()` で判定する。詳細は「権限設計（マルチテナント）」を参照。
 7. 参加者の**編集キー**は `hashToken()`（SHA-256）で保存し平文をDBに残さない。照合は `safeEqual()`（定数時間）。発行時に一度だけ本人へ提示。
 8. **時刻はUTC（`timestamptz`）で保存**し、表示時にローカルTZ（既定 Asia/Tokyo）へ変換。`"HH:mm"` のようなTZ非依存文字列で時刻を持たない。変換は `lib/slots.ts` の `zonedTimeToUtc()` を使う。
 9. **入力検証はサーバー側で必須**（`lib/validation.ts` の zod スキーマ）。送信スロットは候補集合（`validSlotSet`）に含まれるか必ず照合。フロントの検証はUX目的のみ。
@@ -115,6 +115,35 @@ npm run typecheck  # tsc --noEmit
 - **CSV出力の対象範囲**: 現状は管理者限定機能として**全イベント種別**（先着制含む）で出力可能。重複OKのみに限定したい場合は要調整。
 - 公開集計は `requirement.md` §5.2/§5.3 の「集計は管理者のみ閲覧」という当初方針を**重複OKに限って緩和**したもの。方針を変更・確定した際は `requirement.md` にも反映する。
 
+## 権限設計（マルチテナント）
+
+**配布形態**: 1つのインスタンス（同じアプリ・同じDB）を複数の管理者で共有し、`ADMIN_EMAILS` の許可リストで限定公開する。各管理者は自分のデータだけを見られるよう**テナント分離**する（`events.owner_email` は 0001 で導入済み）。
+
+**権限は2階層**（`lib/auth.ts`）:
+
+| | env | イベント | フィードバック |
+|---|---|---|---|
+| 一般管理者 | `ADMIN_EMAILS` | 自分が owner のものだけ | 自分のイベント(`/e/{id}`)由来の**システムフィードバック**のみ |
+| 最上位（開発者） | `SUPER_ADMIN_EMAILS` | 全件 | 全件（**参加リクエスト**含む）を総括 |
+
+- 両方のenvに同じメールを入れても良い。権限は和集合で評価され **SUPER が優先**（`isSuperAdmin()`）。`isAllowedEmail()` は和集合、`canManageEvent(user, ownerEmail)` が可否判定の単一ソース。
+- 分離の実体は env ではなく**DBの `owner_email` 列＋コード側の絞り込み**。個別env（`EMAIL_01`等）は不要。
+- **多層防御**: 表示を隠すだけでなく「URL直打ちで他人のイベントを操作できない」認可まで必須。以下すべてで `canManageEvent()` を通す:
+  - `app/admin/page.tsx`（一覧を owner で絞る）
+  - `app/admin/events/[eventId]/page.tsx`（他人のは `notFound()`）
+  - `app/admin/actions.ts`（`authorizeEvent()` で update/delete/toggleClose/deleteParticipant をガード）
+  - `app/admin/events/[eventId]/export/route.ts`（CSVも owner 認可）
+  - `app/admin/feedback/page.tsx`（super=全件 / 一般=自分のイベント由来のシステムフィードバックのみ）
+
+**フィードバックの2種別**（`feedback.kind`）:
+- `feedback`＝**システムフィードバック**（`FeedbackWidget`、全ページ右下）。アプリ本体の不具合・要望。
+- `access_request`＝**参加リクエスト**（`AccessRequestForm`、トップ）。サービス全体向けなので一般管理者には表示せず super のみ総括。
+- Discord通知先 `DISCORD_WEBHOOK_URL` は1本のまま。開発者（super）が全件を確認する運用。
+
+**次回やること（フィードバック既読バッジ）**: 管理トップの「フィードバック」リンクに新着バッジ/色を付ける案。設計は実現可能で、軽量案＝新テーブル `admin_feedback_seen(email text primary key, last_seen_at timestamptz)` を追加し、`/admin/feedback` を開いた際に `last_seen_at = now()` を upsert、バッジは「自分の対象フィードバックで `created_at > last_seen_at` の件数」を表示する。個別既読まで必要なら `feedback_reads(feedback_id, email, read_at)` の複合主キー方式に拡張する。**今回は未実装**。
+
+**将来（調整さん化＝完全匿名主催）**: owner を email ではなくイベント発行時の `owner_key`（トークン）に切り替えれば Google ログイン無しの匿名主催に拡張できる。今回の `owner_email` 設計はその布石。
+
 ## 環境変数（例）
 
 `.env` はコミットしない（`.gitignore`済み）。`.env.example` に鍵名のみ記載すること。
@@ -125,6 +154,8 @@ SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 DATABASE_URL=            # Pooler(6543, transactionモード)
 DISCORD_WEBHOOK_URL=     # 開発者への即時通知（lib/notify.ts）。クライアントに露出させない
+ADMIN_EMAILS=            # 一般管理者（カンマ区切り）。自分のイベントのみ閲覧/操作
+SUPER_ADMIN_EMAILS=      # 最上位＝開発者（カンマ区切り）。全イベント・全フィードバックを総括
 # クライアント公開可（使う場合のみ・最小限）
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
