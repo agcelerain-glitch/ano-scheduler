@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { requireAdmin, isSuperAdmin } from "@/lib/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { countUnread } from "@/lib/feedback";
 import { dateLabel, daysUntil } from "@/lib/format";
 import CreateEventForm from "./CreateEventForm";
 import HealthCheckPanel from "@/components/HealthCheckPanel";
@@ -34,6 +35,7 @@ export default async function AdminPage() {
   }
   const { data } = await query;
   const events = (data ?? []) as EventListRow[];
+  const unreadFeedback = await countUnread(user.email ?? undefined);
 
   return (
     <main className="mx-auto max-w-4xl px-5 py-10">
@@ -45,9 +47,14 @@ export default async function AdminPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/admin/feedback"
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100"
+            className="relative rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100"
           >
             フィードバック
+            {unreadFeedback > 0 && (
+              <span className="absolute -right-2 -top-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1 py-0.5 text-[10px] font-bold text-white">
+                {unreadFeedback}
+              </span>
+            )}
           </Link>
           <form action="/auth/signout" method="post">
             <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">

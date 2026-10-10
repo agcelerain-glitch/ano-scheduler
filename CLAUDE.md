@@ -66,6 +66,7 @@ supabase/migrations/0001_init.sql          # スキーマ＋RLS
 supabase/migrations/0002_feedback.sql      # フィードバック保存テーブル
 supabase/migrations/0003_allow_overlap.sql # 重複可否（先着制）カラム追加
 supabase/migrations/0004_participant_note.sql # 特記事項(participants.note)。day_memos は廃止
+supabase/migrations/0005_feedback_reads.sql   # フィードバックの既読状態（管理者ごと）
 ```
 
 ## コマンド
@@ -140,7 +141,9 @@ npm run typecheck  # tsc --noEmit
 - `access_request`＝**参加リクエスト**（`AccessRequestForm`、トップ）。サービス全体向けなので一般管理者には表示せず super のみ総括。
 - Discord通知先 `DISCORD_WEBHOOK_URL` は1本のまま。開発者（super）が全件を確認する運用。
 
-**次回やること（フィードバック既読バッジ）**: 管理トップの「フィードバック」リンクに新着バッジ/色を付ける案。設計は実現可能で、軽量案＝新テーブル `admin_feedback_seen(email text primary key, last_seen_at timestamptz)` を追加し、`/admin/feedback` を開いた際に `last_seen_at = now()` を upsert、バッジは「自分の対象フィードバックで `created_at > last_seen_at` の件数」を表示する。個別既読まで必要なら `feedback_reads(feedback_id, email, read_at)` の複合主キー方式に拡張する。**今回は未実装**。
+**フィードバック既読機能（実装済み）**: 管理者ごとの個別既読を `feedback_reads(feedback_id, email, read_at)` 複合主キー（0005）で管理する。super と一般管理者で既読状態は独立。
+- 判定ロジックは `lib/feedback.ts`（`listVisibleFeedback` / `getReadIds` / `countUnread`）に集約し、`/admin`（未読バッジ）と `/admin/feedback`（未読表記・件数）で共用。
+- 既読/未読の切替は `app/admin/feedback/actions.ts` の `toggleFeedbackReadAction`。`email` はサーバーの `user.email` を使いなりすまし防止。`feedback_reads` 未適用でも画面は落ちない（既読取得は失敗時に空集合）。
 
 **将来（調整さん化＝完全匿名主催）**: owner を email ではなくイベント発行時の `owner_key`（トークン）に切り替えれば Google ログイン無しの匿名主催に拡張できる。今回の `owner_email` 設計はその布石。
 
